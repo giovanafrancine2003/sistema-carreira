@@ -1550,7 +1550,7 @@ function AppContent({ user, onLogout }) {
       { id: "entrevista", icon: "🎤", label: "Módulo 4 · Entrevista" },
       { id: "carta", icon: "✉️", label: "Módulo 5 · Carta" },
       { id: "conquistas", icon: "🏆", label: "Módulo 6 · Conquistas", badge: conquistas.length || null },
-      { id: "calendario", icon: "📅", label: "Módulo 7 · Calendário" },
+      { id: "calendario", icon: "📅", label: "Modulo 7 - Calendario" },
       { id: "referencias", icon: "🔍", label: "Módulo 8 · Referências" },
       { id: "desenvolvimento", icon: "📈", label: "Módulo 9 · Desenvolvimento", badge: plans.length || null },
       { id: "comparador", icon: "⚖️", label: "Módulo 10 · Comparador" },
