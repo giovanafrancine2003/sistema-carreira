@@ -255,10 +255,11 @@ function AIBox({ title, placeholder, buildPrompt, system, minH, contexto, defaul
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   useEffect(() => { if (defaultValue) setInput(defaultValue); }, [defaultValue]);
   const run = async () => {
     if (!input.trim()) return;
-    setLoading(true); setOutput("");
+    setLoading(true); setOutput(""); setEditing(false);
     try {
       const prefix = buildContextPrefix(contexto);
       setOutput(await callClaude(prefix + buildPrompt(input), system));
@@ -282,12 +283,22 @@ function AIBox({ title, placeholder, buildPrompt, system, minH, contexto, defaul
         {loading ? <span className="loading-dots">Gerando</span> : "→ Gerar com IA"}
       </button>
       {output && (
-        <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, padding:20, marginTop:14, maxHeight:520, overflowY:"auto" }}>
+        <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, padding:20, marginTop:14, maxHeight:600, overflowY:"auto" }}>
           <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:10 }}>
+            <button className="btn btn-g" onClick={() => setEditing(!editing)} style={{ padding:"5px 12px", fontSize:11 }}>{editing ? "✓ Concluir edição" : "✎ Editar texto"}</button>
             <button className="btn btn-g" onClick={exportPdf} style={{ padding:"5px 12px", fontSize:11 }}>⬇ Exportar PDF</button>
             <button className="btn btn-g" onClick={copy} style={{ padding:"5px 12px", fontSize:11 }}>{copied ? "✓ Copiado" : "Copiar"}</button>
           </div>
-          {renderMD(output)}
+          {editing ? (
+            <textarea
+              className="ta"
+              value={output}
+              onChange={e => setOutput(e.target.value)}
+              style={{ background:"#060E1A", border:`1px solid ${T.blue}44`, minHeight:400, width:"100%", fontFamily:"inherit" }}
+            />
+          ) : (
+            renderMD(output)
+          )}
         </div>
       )}
     </div>
@@ -627,6 +638,8 @@ function ModuloCurriculo({ resumeScore, setResumeScore, scoreHistory, setScoreHi
   const [genLoading, setGenLoading] = useState(false);
   const [genCopied, setGenCopied] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editingGen, setEditingGen] = useState(false);
+  const [applyingImprovements, setApplyingImprovements] = useState(false);
 
   useEffect(() => {
     if (pendingAddition) {
@@ -676,7 +689,10 @@ Aponte riscos de o currículo não passar por filtros automáticos.`;
   };
   const copy = () => { navigator.clipboard.writeText(output); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
-  const systemGen = "Você é especialista em redação de currículos ATS-friendly. Transforme experiências em texto livre em um currículo estruturado profissional, com bullets de impacto (verbo de ação + resultado quantificado quando possível), seções claras (Resumo, Experiência, Formação, Habilidades, Certificações) e linguagem objetiva.";
+  const systemGen = "Você é especialista em redação de currículos ATS-friendly em português do Brasil. Transforme experiências em texto livre em um currículo estruturado profissional, com bullets de impacto (verbo de ação + resultado quantificado quando possível), seções claras (Resumo, Experiência, Formação, Habilidades, Certificações) e linguagem objetiva. REGRAS OBRIGATÓRIAS: 1) Escreva todo o currículo na terceira pessoa implícita, sem pronomes (ex: 'Gerenciou campanhas de tráfego pago' e não 'Eu gerenciei' ou 'Você gerenciou' ou 'Gerencia campanhas'). Nunca alterne entre primeira, segunda ou terceira pessoa dentro do mesmo texto. 2) Revise cuidadosamente a gramática, concordância verbal e nominal, e coerência do português antes de finalizar — não entregue texto com erros de interpretação ou frases que não façam sentido lógico. 3) Mantenha o tempo verbal consistente: passado para experiências anteriores, presente para o cargo atual.";
+
+  const systemApply = systemGen + " Você está reescrevendo um currículo existente para corrigir problemas já identificados numa análise crítica. Aplique TODAS as sugestões de melhoria listadas, corrija os pontos críticos apontados, e preserve os pontos fortes mencionados. O resultado final deve ser um currículo completo e pronto para uso, não um resumo das mudanças.";
+
   const runGen = async () => {
     if (!genInput.trim()) return;
     setGenLoading(true); setGenOutput("");
@@ -685,6 +701,21 @@ Aponte riscos de o currículo não passar por filtros automáticos.`;
       setGenOutput(await callClaude(`${prefix}Transforme isso em um currículo estruturado e profissional:\n\n${genInput}\n\nFormate em seções claras, prontas para usar.`, systemGen));
     } catch { setGenOutput("Erro ao conectar com a IA."); }
     setGenLoading(false);
+  };
+
+  const applyImprovements = async () => {
+    if (!input.trim() || !output.trim()) return;
+    setApplyingImprovements(true);
+    setTab("gerador");
+    setGenOutput("");
+    try {
+      const prefix = buildContextPrefix(contexto);
+      const prompt = `${prefix}Currículo original:\n\n${input}\n\n---\n\nAnálise crítica recebida sobre esse currículo:\n\n${output}\n\n---\n\nReescreva o currículo completo aplicando todas as melhorias apontadas na análise acima.`;
+      const result = await callClaude(prompt, systemApply);
+      setGenOutput(result);
+      setGenInput(input);
+    } catch { setGenOutput("Erro ao conectar com a IA."); }
+    setApplyingImprovements(false);
   };
   const copyGen = () => { navigator.clipboard.writeText(genOutput); setGenCopied(true); setTimeout(() => setGenCopied(false), 2000); };
   const useAsCurriculo = () => {
@@ -720,6 +751,9 @@ Aponte riscos de o currículo não passar por filtros automáticos.`;
             {output && (
               <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20, marginTop: 14, maxHeight: 520, overflowY: "auto" }}>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+                  <button className="btn btn-a" onClick={applyImprovements} disabled={applyingImprovements} style={{ padding: "5px 12px", fontSize: 11 }}>
+                    {applyingImprovements ? <span className="loading-dots">Aplicando</span> : "✨ Aplicar melhorias e gerar currículo corrigido"}
+                  </button>
                   <button className="btn btn-g" onClick={() => exportToPDF("Análise de Currículo", `<h1>Análise de Currículo</h1>${mdToHTML(output)}`)} style={{ padding: "5px 12px", fontSize: 11 }}>⬇ Exportar PDF</button>
                   <button className="btn btn-g" onClick={copy} style={{ padding: "5px 12px", fontSize: 11 }}>{copied ? "✓ Copiado" : "Copiar"}</button>
                 </div>
@@ -736,17 +770,32 @@ Aponte riscos de o currículo não passar por filtros automáticos.`;
               {contexto && contexto.area && <span className="tag tag-a" style={{ marginLeft: "auto", fontSize: 10 }}>usando seu contexto de perfil</span>}
             </div>
             <textarea className="ta" placeholder="Descreva sua experiência em texto livre: cargos, empresas, períodos, principais responsabilidades e resultados, formação, certificações, habilidades. Não precisa formatar, só escrever tudo." value={genInput} onChange={e => setGenInput(e.target.value)} style={{ background: "#060E1A", border: `1px solid ${T.blue}44`, minHeight: 160 }} />
-            <button className="btn btn-p" onClick={runGen} disabled={genLoading} style={{ marginTop: 10 }}>
+            <button className="btn btn-p" onClick={runGen} disabled={genLoading || applyingImprovements} style={{ marginTop: 10 }}>
               {genLoading ? <span className="loading-dots">Gerando</span> : "→ Gerar com IA"}
             </button>
+            {applyingImprovements && !genOutput && (
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 14, textAlign: "center" }}>
+                <span className="loading-dots">Aplicando melhorias da análise ao currículo</span>
+              </div>
+            )}
             {genOutput && (
-              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20, marginTop: 14, maxHeight: 520, overflowY: "auto" }}>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20, marginTop: 14, maxHeight: 600, overflowY: "auto" }}>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+                  <button className="btn btn-g" onClick={() => setEditingGen(!editingGen)} style={{ padding: "5px 12px", fontSize: 11 }}>{editingGen ? "✓ Concluir edição" : "✎ Editar texto"}</button>
                   <button className="btn btn-a" onClick={useAsCurriculo} style={{ padding: "5px 12px", fontSize: 11 }}>{savedFlash ? "✓ Salvo como meu currículo" : "★ Usar como meu currículo"}</button>
                   <button className="btn btn-g" onClick={() => exportToPDF("Currículo", `<h1>Currículo</h1>${mdToHTML(genOutput)}`)} style={{ padding: "5px 12px", fontSize: 11 }}>⬇ Exportar PDF</button>
                   <button className="btn btn-g" onClick={copyGen} style={{ padding: "5px 12px", fontSize: 11 }}>{genCopied ? "✓ Copiado" : "Copiar"}</button>
                 </div>
-                {renderMD(genOutput)}
+                {editingGen ? (
+                  <textarea
+                    className="ta"
+                    value={genOutput}
+                    onChange={e => setGenOutput(e.target.value)}
+                    style={{ background: "#060E1A", border: `1px solid ${T.blue}44`, minHeight: 400, width: "100%", fontFamily: "inherit" }}
+                  />
+                ) : (
+                  renderMD(genOutput)
+                )}
               </div>
             )}
           </div>
